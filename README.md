@@ -26,3 +26,21 @@ The app requires the following packages to be installed:
 - vpn-slice
 
 All of this can be installed through Homebrew.
+
+## Installation
+
+As the app are unsigned, you might hit with MacOS gatekeeper if you download the zip directly, and extract it. Few way to get around this is by download it with cURL.
+
+```
+curl https://github.com/idrakimuhamad/kura-kura-vpn/releases/download/0.1.1/kura-kura-0.1.1.zip --output ~/Downloads/kura-kura.zip
+```
+
+Replace the version with the latest tag.
+
+Another is to just download it from release, and then manually remove the quarantine (if it is).
+
+```
+xattr -d com.apple.quarantine ~/Downloads/kura-kura.zip
+```
+
+You can then unzip and open the app.

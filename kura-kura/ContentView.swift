@@ -36,6 +36,7 @@ class SettingsWindowController: NSWindowController {
 struct ContentView: View {
     @State private var vpn: Process?
     @State private var token: String = ""
+    @State private var isResized = false
     @State private var isLoading = false
     @State private var isConnected = false
     @State private var errorMessage: [String] = []
@@ -46,138 +47,143 @@ struct ContentView: View {
     @State private var hostURL = UserDefaults.standard.string(forKey: "hostURL") ?? ""
     @State private var user = UserDefaults.standard.string(forKey: "username") ?? ""
     @State private var password = UserDefaults.standard.string(forKey: "password") ?? ""
-    @State private var useSlice = UserDefaults.standard.bool(forKey: "useSlice")
-    @State private var urls = UserDefaults.standard.string(forKey: "urls") ?? ""
+    @State private var urls = UserDefaults.standard.array(forKey: "urls") as? [String] ?? []
     
     var body: some View {
-        VStack {
-            HStack {
-                Spacer()
-                
-                Button(action: {
-                    showSettingsWindow()
-                }) {
-                    Image(systemName: "gearshape")
+        VStack (alignment: .leading) {
+            HStack (alignment: .top) {
+                VStack (spacing: 8) {
+                    Image("kura")
                         .resizable()
-                        .frame(width: 16, height: 16)
-                    Text("Settings")
-                }
-                .padding()
-                .disabled(isLoading || isConnected)
-            }.background(Color(NSColor.gridColor))
-            
-            Spacer()
-            
-            VStack {
-                ScrollView {
-                    VStack(alignment: /*@START_MENU_TOKEN@*/.center/*@END_MENU_TOKEN@*/, spacing: 12) {
-                        VStack() {
-                            Text("Sudo Password")
-                                .font(.headline)
-                            
-                            TextField("Enter password", text: $sudoPassword)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .disabled(isConnected)
-                        }
-                        .frame(width: 200)
-                        
-                        Button(action: {
-                            if isConnected {
-                                stopVpn()
-                            } else {
-                                prepareConfig()
-                            }
-                        }) {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
-                                    .scaleEffect(0.5)
-                            } else {
-                                Text(isConnected ? "Disconnect" : "Connect")
-                            }
-                        }
-                        .disabled(sudoPassword.isEmpty || isLoading)
-                    }
+                        .frame(width: 64, height: 64)
                     
-                    Spacer()
-                    
-                    VStack(spacing: 8) {
-                        if !errorMessage.isEmpty {
-                            VStack(alignment: .leading) {
-                                ForEach(errorMessage, id: \.self) { message in
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "xmark.seal.fill")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                            .foregroundColor(.red)
-                                        Text(message)
-                                            .foregroundColor(.red)
-                                    }
-                                }
-                            }
-                        }
-                        
-                        if !logMessage.isEmpty && errorMessage.isEmpty {
-                            VStack(alignment: .leading) {
-                                ForEach(logMessage, id: \.self) { message in
-                                    HStack(alignment: .center, spacing: 4) {
-                                        Image(systemName: "checkmark.seal.fill")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                            .foregroundColor(.green)
-                                        Text(message)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                .padding()
-                VStack {
-                    HStack(alignment: .center) {
+                    VStack {
                         Text("Status:")
                         Text(isConnected ? "Connected" : "Disconnected")
                             .foregroundColor(
                                 isConnected ? .green : .red)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                VStack (alignment: .leading) {
+                    Text("Sudo Password")
+                        .font(.headline)
+                    TextField("Enter password", text: $sudoPassword)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .disabled(isConnected)
+                    
+                    if isResized {
+                        Divider().padding()
+                        
+                        ScrollView {
+                            VStack(spacing: 8) {
+                                if !errorMessage.isEmpty {
+                                    VStack(alignment: .leading) {
+                                        ForEach(errorMessage, id: \.self) { message in
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "xmark.seal.fill")
+                                                    .resizable()
+                                                    .frame(width: 16, height: 16)
+                                                    .foregroundColor(.red)
+                                                Text(message)
+                                                    .foregroundColor(.red)
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if !logMessage.isEmpty && errorMessage.isEmpty {
+                                    VStack(alignment: .leading) {
+                                        ForEach(logMessage, id: \.self) { message in
+                                            HStack(alignment: .center, spacing: 4) {
+                                                Image(systemName: "checkmark.seal.fill")
+                                                    .resizable()
+                                                    .frame(width: 16, height: 16)
+                                                    .foregroundColor(.green)
+                                                Text(message)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 .padding()
-                .background(Color(NSColor.windowBackgroundColor))
             }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            
+            VStack (alignment: .center) {
+                Button(action: {
+                    if isConnected {
+                        withAnimation {
+                            isResized = false
+                            stopVpn()
+                            errorMessage = []
+                            logMessage = []
+                            isConnected = false
+                            isLoading = false
+                            resizeWindowToFitContent()
+                        }
+                    } else {
+                        withAnimation {
+                            isResized = true
+                             prepareConfig()
+                            resizeWindowToFitContent()
+                        }
+                    }
+                }) {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                            .scaleEffect(0.5)
+                    } else {
+                        Text(isConnected ? "Disconnect" : "Connect")
+                    }
+                }
+                .disabled(isLoading || sudoPassword.isEmpty)
+                .padding()
+                .buttonStyle(BorderedProminentButtonStyle())
+            }
+            .frame(maxWidth: /*@START_MENU_TOKEN@*/.infinity/*@END_MENU_TOKEN@*/)
+            .background(Color(NSColor.systemFill))
         }
-        .frame(maxWidth: 400, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: 400, alignment: .top)
+        .onAppear {
+            resizeWindowTo(size: NSSize(width: 400, height: 200))
+            isResized = false
+        }
     }
     
-    func showSettingsWindow() {
-        if let existingWindow = NSApp.windows.first(where: { $0.title == "Settings" }) {
-            existingWindow.makeKeyAndOrderFront(nil)
-            return
+    private func resizeWindowTo(size: NSSize) {
+        // Access the main window and resize it
+        if let window = NSApp.windows.first {
+            let newFrame = NSRect(origin: window.frame.origin, size: size)
+            window.setFrame(newFrame, display: true, animate: false)
         }
-        
-        let settingsWindowController = SettingsWindowController(windowNibName: NSNib.Name("SettingsWindow"))
-        
-        let settingsWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered, defer: false
-        )
-        settingsWindow.title = "Settings"
-        settingsWindow.center()
-        settingsWindow.setFrameAutosaveName("SettingsWindow")
-        settingsWindow.contentView = NSHostingView(
-            rootView: SettingsView(
-                tokenPasscode: $passcode,
-                hostURL: $hostURL,
-                username: $user,
-                password: $password,
-                useSlice: $useSlice,
-                urls: $urls,
-                windowController: settingsWindowController
-            )
-        )
-        settingsWindowController.window = settingsWindow
-        settingsWindow.makeKeyAndOrderFront(nil)
+    }
+    
+    func resizeWindowToFitContent() {
+        DispatchQueue.main.async {
+            guard let window = NSApp.keyWindow else { return }
+            
+            let targetHeight: CGFloat = isResized ? 400 : 200
+            let targetSize = NSSize(width: 400, height: targetHeight)
+            
+            // Create a frame based on the target size
+            var frame = window.frame
+            frame.size = targetSize
+            
+            // Adjust the frame origin to keep the window centered
+            frame.origin.y += (window.frame.height - targetSize.height)
+            
+            // Animate the window resizing
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.25  // Animation duration
+                window.animator().setFrame(frame, display: true)
+            })
+        }
     }
     
     func getUserShell() -> String {
@@ -225,8 +231,11 @@ struct ContentView: View {
                 print("VPN Output: \(outputString)")
                 
                 if outputString.contains("Got CONNECT response: HTTP/1.1 200 OK") {
-                    isConnected = true
-                    isLoading = false
+                    withAnimation {
+                        isConnected = true
+                        isLoading = false
+                        resizeWindowToFitContent()
+                    }
                 }
             }
         }
@@ -237,14 +246,22 @@ struct ContentView: View {
                 print("VPN Output: \(errorString)")
                 
                 if errorString.contains("Got CONNECT response: HTTP/1.1 200 OK") {
-                    isConnected = true
-                    isLoading = false
+                    withAnimation {
+                        isConnected = true
+                        isLoading = false
+                        resizeWindowToFitContent()
+                    }
                 }
                 
-                if errorString.contains("stdin") {
+                if errorString.contains("stdin") || errorString.contains("Sorry, try again") {
                     print("VPN Error: \(errorString)")
-                    isLoading = false
-                    stopVpn()
+                    withAnimation {
+                        isLoading = false
+                        errorMessage.append(errorString)
+                        logMessage = []
+                        stopVpn()
+                        resizeWindowToFitContent()
+                    }
                 }
             }
         }
@@ -329,7 +346,7 @@ struct ContentView: View {
                 
                 var vpnSliceCommand = ""
                 
-                if useSlice {
+                if !urls.isEmpty {
                     let checkSlice = try runShell("which vpn-slice ")
                     
                     if checkSlice.isEmpty || checkSlice.contains("not found") {
@@ -341,7 +358,8 @@ struct ContentView: View {
                             errorMessage.append("VPN Slice are enabled, but URLs for VPN slicing are not set. Please add it in the settings.")
                             throw StokenError.stokenNotInstalled
                         } else {
-                            vpnSliceCommand = "-s 'vpn-slice \(urls)'"
+                            let joinedUrl = urls.joined(separator: " ")
+                            vpnSliceCommand = "-s 'vpn-slice \(joinedUrl)'"
                             
                             logMessage.append("VPN slice is checked")
                             logMessage.append("VPN slice URLS have been set")
@@ -357,7 +375,7 @@ struct ContentView: View {
                 print("password: \(password)")
                 print("user: \(user)")
                 print("user: \(hostURL)")
-                print("use slice?: \(useSlice)")
+                print("vpnSlice?: \(vpnSliceCommand)")
                 
                 let command = """
                 (echo '\(sudoPassword)'; echo \(passPin); echo '\(password)') | sudo -S openconnect --user=\(user) \(hostURL) \(vpnSliceCommand)
